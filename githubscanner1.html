@@ -4,44 +4,130 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR/Barcode Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        #reader { width: 300px; margin: auto; }
-        #info { margin-top: 20px; }
-        button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #reader canvas {
+            max-width: 100%;
+            height: auto;
+        }
     </style>
 </head>
-<body>
-    <h1>QR/Barcode Scanner</h1>
-    <div id="reader"></div>
-    <div id="info">Scanning...</div>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">QR/Barcode Scanner</h1>
+        <p class="text-gray-600 mb-6">Scan a QR code or barcode with your camera.</p>
+
+        <div id="reader" class="rounded-lg overflow-hidden border-2 border-gray-300"></div>
+
+        <div id="status-container" class="mt-4">
+            <div id="info" class="text-sm text-gray-500">Initializing camera...</div>
+            <div id="result-display" class="hidden mt-4">
+                <p class="text-sm font-semibold text-gray-700">Scanned Content:</p>
+                <div id="decoded-text" class="text-sm text-blue-600 break-words mt-1 p-2 bg-blue-50 rounded-lg"></div>
+                <a id="open-link-button" class="mt-4 inline-block bg-blue-600 text-white font-medium py-2 px-4 rounded-full shadow-md hover:bg-blue-700 transition-colors hidden" href="#" target="_blank">Open Link</a>
+            </div>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-6 justify-center">
+            <button id="start-button" class="bg-green-500 text-white font-medium py-2 px-6 rounded-full shadow-md hover:bg-green-600 transition-colors">Start Scanning</button>
+            <button id="stop-button" class="bg-red-500 text-white font-medium py-2 px-6 rounded-full shadow-md hover:bg-red-600 transition-colors">Stop Scanning</button>
+        </div>
+    </div>
+
     <script>
-        function onScanSuccess(decodedText, decodedResult) {
-            // Stop scanning
-            html5QrcodeScanner.clear().then(_ => {
-                console.log("Scanner stopped.");
-                // Redirect to google.com?link=<scanned value>
-                window.location.href = "https://www.google.com?link=" + encodeURIComponent(decodedText);
-            }).catch(error => {
-                console.error("Failed to stop scanner", error);
-            });
-        }
+        window.onload = function() {
+            const infoDiv = document.getElementById("info");
+            const resultDisplayDiv = document.getElementById("result-display");
+            const decodedTextDiv = document.getElementById("decoded-text");
+            const openLinkButton = document.getElementById("open-link-button");
+            const startButton = document.getElementById("start-button");
+            const stopButton = document.getElementById("stop-button");
+            
+            let html5QrcodeScanner;
 
-        function onScanFailure(error) {
-            // Can log scan failures if needed
-            // console.warn(`Scan failed: ${error}`);
-        }
+            // Function to handle successful scans
+            function onScanSuccess(decodedText, decodedResult) {
+                console.log(`Scan successful: ${decodedText}`);
+                infoDiv.innerText = "Scan successful!";
+                resultDisplayDiv.classList.remove('hidden');
+                decodedTextDiv.innerText = decodedText;
+                
+                // Check if the decoded text is a valid URL
+                try {
+                    const url = new URL(decodedText);
+                    openLinkButton.href = decodedText;
+                    openLinkButton.classList.remove('hidden');
+                } catch (_) {
+                    // Not a valid URL, hide the button
+                    openLinkButton.classList.add('hidden');
+                }
+                
+                // Stop the scanner immediately after a successful scan
+                if (html5QrcodeScanner.isScanning) {
+                    html5QrcodeScanner.stop().then(() => {
+                        console.log("Scanner stopped successfully.");
+                    }).catch(error => {
+                        console.error("Failed to stop scanner after scan:", error);
+                    });
+                }
+            }
 
-        let html5QrcodeScanner = new Html5Qrcode("reader");
-        html5QrcodeScanner.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: 250 },
-            onScanSuccess,
-            onScanFailure
-        ).catch(err => {
-            document.getElementById("info").innerText = "Camera error: " + err;
-        });
+            // Function to handle scan failures
+            function onScanFailure(error) {
+                // Log the error but don't show it to the user unless it's a critical camera error
+                console.warn(`Scan failed: ${error}`);
+            }
+
+            // Function to start the scanning process
+            function startScanning() {
+                if (!html5QrcodeScanner) {
+                    html5QrcodeScanner = new Html5Qrcode("reader");
+                }
+                
+                // Clear previous results before starting
+                resultDisplayDiv.classList.add('hidden');
+                infoDiv.innerText = "Scanning...";
+                
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" }, 
+                    { fps: 10, qrbox: 250, disableFlip: false },
+                    onScanSuccess,
+                    onScanFailure
+                ).then(() => {
+                    console.log("Scanner started.");
+                }).catch(err => {
+                    infoDiv.innerText = "Camera access denied. Please allow camera permissions.";
+                    console.error("Failed to start scanner:", err);
+                });
+            }
+
+            // Function to stop the scanning process
+            function stopScanning() {
+                if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                    html5QrcodeScanner.stop().then(() => {
+                        infoDiv.innerText = "Scanning stopped.";
+                        console.log("Scanner stopped successfully.");
+                    }).catch(error => {
+                        infoDiv.innerText = "Error stopping scanner.";
+                        console.error("Failed to stop scanner:", error);
+                    });
+                } else {
+                    infoDiv.innerText = "Scanner is not running.";
+                }
+            }
+
+            // Add event listeners to the buttons
+            startButton.addEventListener('click', startScanning);
+            stopButton.addEventListener('click', stopScanning);
+
+            // Start scanning on page load
+            startScanning();
+        };
     </script>
 </body>
 </html>
