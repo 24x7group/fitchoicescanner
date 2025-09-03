@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR/Barcode Scanner</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        #reader { width: 300px; margin: auto; }
+        #info { margin-top: 20px; }
+        button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>QR/Barcode Scanner</h1>
+    <div id="reader"></div>
+    <div id="info">Scanning...</div>
+    <script>
+        function onScanSuccess(decodedText, decodedResult) {
+            // Stop scanning
+            html5QrcodeScanner.clear().then(_ => {
+                console.log("Scanner stopped.");
+                // Redirect to google.com?link=<scanned value>
+                window.location.href = "https://www.google.com?link=" + encodeURIComponent(decodedText);
+            }).catch(error => {
+                console.error("Failed to stop scanner", error);
+            });
+        }
+
+        function onScanFailure(error) {
+            // Can log scan failures if needed
+            // console.warn(`Scan failed: ${error}`);
+        }
+
+        let html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: 250 },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            document.getElementById("info").innerText = "Camera error: " + err;
+        });
+    </script>
+</body>
+</html>
